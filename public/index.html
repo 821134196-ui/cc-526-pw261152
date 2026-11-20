@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>RuleGate · 受限数据规则查询台</title>
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+<div id="login" class="login-shell">
+  <div class="login-card">
+    <div class="brand brand-lg">
+      <div class="brand-mark" aria-hidden="true"></div>
+      <div>
+        <h1>RuleGate</h1>
+        <p>受限自然语言 · 数据规则查询台</p>
+      </div>
+    </div>
+    <p class="login-lede">
+      查询只能映射到<strong>已登记</strong>的字段、指标与操作。无法解析、越权或命中歧义的条件会被明确拒绝，并留下证据链。
+    </p>
+    <form id="login-form" class="login-form" autocomplete="off">
+      <label>
+        <span>账号</span>
+        <input id="login-user" name="username" required value="alice" spellcheck="false" />
+      </label>
+      <label>
+        <span>口令</span>
+        <input id="login-pass" name="password" type="password" required value="analyst-demo-2026" />
+      </label>
+      <button type="submit" class="btn btn-primary">进入查询台</button>
+      <p id="login-error" class="form-error" role="alert"></p>
+    </form>
+    <div class="demo-accounts">
+      <div class="demo-head">
+        <span>演示账号</span>
+        <span class="muted">不同角色可见范围不同</span>
+      </div>
+      <div id="demo-list" class="demo-list"></div>
+    </div>
+  </div>
+</div>
+
+<div id="app" class="app hidden">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"></div>
+      <div class="brand-text"><strong>RuleGate</strong><span>受限查询台</span></div>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="query">查询台</button>
+      <button class="tab" data-tab="rules">规则登记表</button>
+      <button class="tab" data-tab="audit">审计与证据</button>
+      <button class="tab" data-tab="drills">一致性演练</button>
+    </nav>
+    <div class="topbar-right">
+      <div class="pill" id="registry-pill" title="当前生效的规则版本">规则 <code>—</code></div>
+      <div class="session" id="session-chip">
+        <span class="avatar" id="avatar">A</span>
+        <span class="session-text"><strong id="session-name">—</strong><small id="session-role">—</small></span>
+      </div>
+      <button class="btn btn-ghost btn-sm" id="logout-btn">退出</button>
+    </div>
+  </header>
+
+  <main class="main">
+    <!-- QUERY -->
+    <section class="view" id="view-query">
+      <div class="query-grid">
+        <div class="panel composer">
+          <div class="panel-head">
+            <h2>查询条件</h2>
+            <span class="hint">只接受登记词表内的表达</span>
+          </div>
+          <form id="query-form">
+            <textarea id="query-text" rows="3" spellcheck="false" placeholder="例如：最近30天各渠道的销售额，按销售额降序取前3"></textarea>
+            <div class="composer-row">
+              <label class="select-label">
+                <span>规则版本</span>
+                <select id="registry-select"></select>
+              </label>
+              <label class="check">
+                <input type="checkbox" id="bypass-cache" />
+                <span>绕过缓存</span>
+              </label>
+              <button type="submit" class="btn btn-primary" id="run-btn">执行查询</button>
+            </div>
+          </form>
+          <div class="examples">
+            <div class="examples-head"><span>可试语句</span><button class="link" id="shuffle-examples">换一批</button></div>
+            <div id="example-list" class="example-list"></div>
+          </div>
+          <div class="vocab" id="vocab"></div>
+        </div>
+
+        <div class="panel result-panel">
+          <div class="panel-head">
+            <h2>执行结果</h2>
+            <div class="head-actions">
+              <span class="status-dot" id="result-status"><i></i><span>待查询</span></span>
+              <button class="btn btn-sm btn-ghost" id="export-btn" disabled>导出 CSV</button>
+            </div>
+          </div>
+          <div id="result-body" class="result-body">
+            <div class="empty-state">
+              <div class="empty-glyph">{ }</div>
+              <p>输入一条受限条件并执行。</p>
+              <p class="muted">系统会展示解析结果、拒绝原因、证据链与导出审计。</p>
+            </div>
+          </div>
+        </div>
+
+        <aside class="panel evidence-panel" id="evidence-panel">
+          <div class="panel-head">
+            <h2>解析 / 证据</h2>
+            <span class="hint" id="evidence-hint">—</span>
+          </div>
+          <div id="evidence-body" class="evidence-body">
+            <div class="empty-state small"><p>执行后在此展示逐 token 映射与证据链。</p></div>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- RULES -->
+    <section class="view hidden" id="view-rules">
+      <div class="rules-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>版本时间线</h2>
+            <span class="hint" id="rules-hint">可发布新版本</span>
+          </div>
+          <div id="version-list" class="version-list"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>登记表</h2>
+            <div class="head-actions">
+              <select id="rules-registry-select" class="mini-select"></select>
+            </div>
+          </div>
+          <div id="registry-table" class="registry-table"></div>
+        </div>
+        <div class="panel publish-panel">
+          <div class="panel-head">
+            <h2>发布草稿</h2>
+            <span class="hint">乐观并发控制 · If-Match</span>
+          </div>
+          <div class="field">
+            <span>expectedVersion</span>
+            <code id="expected-version" class="mono-block">—</code>
+          </div>
+          <div class="field">
+            <span>变更说明</span>
+            <input id="publish-notes" placeholder="例如：收紧华南时间窗" />
+          </div>
+          <div class="field">
+            <span>草稿 JSON（从当前版本复制后修改）</span>
+            <textarea id="draft-json" rows="12" spellcheck="false"></textarea>
+          </div>
+          <div class="publish-actions">
+            <button class="btn btn-ghost" id="load-draft">载入当前版本</button>
+            <button class="btn btn-ghost" id="validate-draft">校验</button>
+            <button class="btn btn-primary" id="publish-btn">发布</button>
+          </div>
+          <div id="publish-feedback" class="publish-feedback"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- AUDIT -->
+    <section class="view hidden" id="view-audit">
+      <div class="audit-grid">
+        <div class="panel">
+          <div class="panel-head">
+            <h2>审计流水</h2>
+            <div class="head-actions">
+              <button class="btn btn-sm btn-ghost" id="audit-refresh">刷新</button>
+              <button class="btn btn-sm btn-ghost" id="audit-verify">校验链</button>
+              <button class="btn btn-sm btn-primary" id="audit-export">导出审计包</button>
+            </div>
+          </div>
+          <div id="audit-chain" class="audit-chain"></div>
+          <div id="audit-list" class="audit-list"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>证据链复现</h2><span class="hint">固定原始 registryVersion</span></div>
+          <div class="field">
+            <span>queryId</span>
+            <input id="replay-query-id" placeholder="q_xxxxxxxx_..." spellcheck="false" />
+          </div>
+          <button class="btn btn-primary" id="replay-btn">复现并比对</button>
+          <div id="replay-output" class="replay-output"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DRILLS -->
+    <section class="view hidden" id="view-drills">
+      <div class="drill-grid">
+        <div class="panel">
+          <div class="panel-head"><h2>歧义与拒绝演练</h2><span class="hint">点击即执行</span></div>
+          <p class="panel-lede">每条语句都会经过同一解析器；预期结果仅用于验收，不参与判定。</p>
+          <div id="drill-list" class="drill-list"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>并发规则发布</h2><span class="hint">两个写入者 · 同一 expectedVersion</span></div>
+          <p class="panel-lede">两个请求会同时携带当前版本作为前置条件。只有一个应当成功，另一个必须收到 409 冲突。</p>
+          <div class="field">
+            <span>冲突变更说明</span>
+            <input id="concurrent-notes" value="并发演练：收紧时间窗" />
+          </div>
+          <button class="btn btn-primary" id="concurrent-btn">同时发起两次发布</button>
+          <div id="concurrent-output" class="concurrent-output"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head"><h2>缓存隔离与数据完整性</h2><span class="hint">运行时校验</span></div>
+          <div class="drill-actions">
+            <button class="btn btn-ghost" id="cache-stats-btn">查看缓存键</button>
+            <button class="btn btn-ghost" id="integrity-btn">校验分区哈希</button>
+          </div>
+          <div id="cache-output" class="cache-output"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+  <div id="toast" class="toast hidden"></div>
+</div>
+<script src="/app.js" type="module"></script>
+</body>
+</html>

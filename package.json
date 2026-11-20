@@ -1,0 +1,15 @@
+{
+  "name": "rulegate-data-query",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "受限自然语言数据规则查询应用：登记字段/指标映射、权限拒绝、证据链与可复现审计",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "test": "node --test test/*.test.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
